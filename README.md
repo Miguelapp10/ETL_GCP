@@ -21,7 +21,8 @@ Para ejecutar este proyecto, asegúrate de tener instaladas las siguientes libre
   
 Instala las dependencias con:
 ```bash
-pip install pandas numpy google-cloud-bigquery google-cloud-storage fpdf xlsxwriter google-auth-oauthlib google-auth
+pip install pandas numpy google-cloud-bigquery google-cloud-storage fpdf xlsxwriter google-auth-oauthlib google-auth.
+
 
 # Proyecto: CONSOLIDADO PERSONAL DE TRANSPORTE
 
