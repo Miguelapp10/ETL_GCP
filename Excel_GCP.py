@@ -9,9 +9,9 @@ import datetime as dt  # Para fechas (opcional)
 import glob  # Para jalar todo los archivos en una carpeta
 import os  # Para trabajar con rutas
 # Usuario
-usuario = r'Mpazos'
+usuario = r''
 # Ruta
-ruta = r'Devolucion_Postventa - Documentos' 
+ruta = r'Devolucion - Documentos' 
 # 1. Rutas base
 ruta_base = r'C:\\Users\\' + usuario + r'\\Falabella\\' + ruta 
 ## lista Personal de recolección diaria
