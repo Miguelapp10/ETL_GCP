@@ -328,3 +328,122 @@ consolidado_final.to_gbq(destination_table=f"{dataset_id}.{table_id}",
                    if_exists="replace")  # Opciones: "append", "replace", "fail"
 
 print("Los datos se han cargado exitosamente en BigQuery.")
+
+################################################################################################################################################
+#CONSOLIDADO PERSONAL DE TRANSPORTE
+################################################################################################################################################
+import pandas as pd
+import time
+import datetime as dt  # Para fechas (opcional)
+import glob  # Para jalar todo los archivos en una carpeta
+import os  # Para trabajar con rutas
+import locale
+import warnings  # Para evitar que salgan errores en formatos de archivo (no altera el producto)
+from datetime import datetime, timedelta # Para fechas (opcional)
+from io import StringIO  # Usado para definir función nueva
+from pathlib import Path
+import numpy as np  # Para operaciones matemáticas
+import xlsxwriter  # Funcionalidad para trabajar con archivos Excel
+from fpdf import FPDF  # Para crear archivos PDF
+from pandas import ExcelWriter  # Para exportar tabla a Excel
+from xlsx2csv import Xlsx2csv  # Usado para definir función nueva
+from decimal import Decimal
+from google.oauth2 import service_account
+from google.cloud import bigquery
+import os.path
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
+from googleapiclient.errors import HttpError
+import io
+
+# Usuario
+usuario = r''
+# Ruta
+ruta_plan = r'Planificación UM CTs'
+ruta_post = r'Devolucion'
+# 1. Rutas base
+ruta_base_Plan = r'C:\\Users\\' + usuario + r'\\Falabella\\' + ruta_plan
+ruta_base_Post = r'C:\\Users\\' + usuario + r'\\Falabella\\' + ruta_post
+## lista Personal de recolección diaria
+credentials_path = ruta_base_Post + r'\\PRD_Tienda'
+
+# Configurar la autenticación para Google Sheets
+SCOPES = [
+    'https://www.googleapis.com/auth/spreadsheets.readonly',
+    'https://www.googleapis.com/auth/bigquery',
+    'https://www.googleapis.com/auth/drive.readonly',
+    'https://www.googleapis.com/auth/cloud-platform','https://www.googleapis.com/auth/drive'
+]
+API_SERVICE_NAME = 'sheets'
+API_VERSION = 'v4'
+sheet_id_1 = ''
+range_name = 'Datos_Personal_Recojo!A10:G900'  # Rango de celdas a leer
+
+def get_sheets_service():
+    creds = None
+    creds_path = os.path.join(credentials_path, "credentials.json")
+    token_path = os.path.join(credentials_path, "token.json")
+
+    if os.path.exists(token_path):
+        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
+            creds = flow.run_local_server(port=0)
+
+        with open(token_path, "w") as token:
+            token.write(creds.to_json())
+
+    try:
+        service = build(API_SERVICE_NAME, API_VERSION, credentials=creds)
+        return service
+    except HttpError as error:
+        print(f"An error occurred: {error}")
+        return None
+
+def get_sheet_data(service, sheet_id, range_name):
+    try:
+        sheet = service.spreadsheets()
+        result = sheet.values().get(spreadsheetId=sheet_id, range=range_name).execute()
+        values = result.get('values', [])
+        if not values:
+            print('No data found.')
+            return None
+        df = pd.DataFrame(values[1:], columns=values[0])
+        df.rename(columns={'N°': 'Numero','UNIDAD':'Placa_SR'}, inplace=True)  # Ajusta el nombre según sea necesario
+        ### Cambiar los valores de las columnas
+        df.loc[df['Placa_SR'] == 'SEDEL 01', 'Placa_SR'] = 'SEDEL01'
+        df.loc[df['Placa_SR'] == 'SEDEL 02', 'Placa_SR'] = 'SEDEL02'
+        df.loc[df['Placa_SR'] == 'SEDEL 03', 'Placa_SR'] = 'SEDEL03'
+        return df
+    except HttpError as error:
+        print(f"An error occurred: {error}")
+        return None
+
+def upload_to_bigquery(df, dataset_id, table_id, project_id):
+    try:
+        df.to_gbq(destination_table=f"{dataset_id}.{table_id}",
+                  project_id=project_id,
+                  if_exists="replace")  # Opciones: "append", "replace", "fail"
+        print("Los datos se han cargado exitosamente en BigQuery.")
+    except Exception as e:
+        print(f"Error al cargar datos en BigQuery: {e}")
+
+def main():
+    service = get_sheets_service()
+    if service:
+        df = get_sheet_data(service, sheet_id_1, range_name)
+        if df is not None:
+            project_id = "bi-local-pe"
+            dataset_id = "Devolucion"
+            table_id = "Personal_transporte"
+            upload_to_bigquery(df, dataset_id, table_id, project_id)
+
+if __name__ == "__main__":
+    main()
